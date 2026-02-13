@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Audio Reader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .theme-transition * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.8);
+        }
+        
+        /* Light theme overrides */
+        .light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border-color: #d1d5db;
+        }
+        
+        .light-theme .bg-gray-900 {
+            background-color: var(--bg-primary) !important;
+        }
+        
+        .light-theme .bg-gray-800 {
+            background-color: var(--bg-secondary) !important;
+        }
+        
+        .light-theme .text-white {
+            color: var(--text-primary) !important;
+        }
+        
+        .light-theme .text-gray-400 {
+            color: var(--text-secondary) !important;
+        }
+        
+        .light-theme .border-gray-700 {
+            border-color: var(--border-color) !important;
+        }
+        
+        .light-theme .hover\:bg-gray-800:hover {
+            background-color: var(--bg-tertiary) !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen theme-transition">
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <!-- Header with Theme Toggle -->
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl md:text-5xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                    PDF Audio Reader
+                </h1>
+                <p class="text-gray-400 text-sm mt-2">Transform your PDFs into an interactive audio experience</p>
+            </div>
+            <button id="themeToggle" class="p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition-all duration-200 shadow-lg">
+                <svg id="darkIcon" class="w-6 h-6 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                </svg>
+                <svg id="lightIcon" class="w-6 h-6 text-gray-800 hidden" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- File Upload Section -->
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-6 mb-6 border border-gray-700">
+            <div class="flex items-center mb-4">
+                <svg class="w-6 h-6 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <h2 class="text-xl font-semibold">Upload PDF</h2>
+            </div>
+            <input 
+                type="file" 
+                id="pdfInput" 
+                accept="application/pdf"
+                class="block w-full text-sm text-gray-400
+                       file:mr-4 file:py-3 file:px-6
+                       file:rounded-lg file:border-0
+                       file:text-sm file:font-semibold
+                       file:bg-gradient-to-r file:from-blue-600 file:to-purple-600
+                       file:text-white file:shadow-lg
+                       hover:file:from-blue-700 hover:file:to-purple-700
+                       file:transition-all file:duration-200
+                       cursor-pointer border-2 border-dashed border-gray-600 rounded-lg p-4
+                       hover:border-blue-500 transition-all"
+            />
+        </div>
+
+        <!-- Playback Section -->
+        <div id="playbackSection" class="hidden space-y-6">
+            <!-- Voice Selection -->
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-6 border border-gray-700">
+                <div class="flex items-center mb-4">
+                    <svg class="w-6 h-6 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                    <h2 class="text-xl font-semibold">Voice Selection</h2>
+                </div>
+                <select id="voiceSelect" class="w-full bg-gray-900 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                    <option value="">Loading voices...</option>
+                </select>
+            </div>
+
+            <!-- Stats Display -->
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-6 border border-gray-700">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-900/50 rounded-xl p-4 backdrop-blur">
+                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Status</div>
+                        <div id="status" class="text-2xl font-bold text-green-400">Ready</div>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-xl p-4 backdrop-blur">
+                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Progress</div>
+                        <div id="sentenceCounter" class="text-2xl font-bold text-blue-400">0 / 0</div>
+                    </div>
+                    <div class="bg-gray-900/50 rounded-xl p-4 backdrop-blur">
+                        <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Time Remaining</div>
+                        <div id="timeRemaining" class="text-2xl font-bold text-purple-400">--:--</div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="relative bg-gray-700 rounded-full h-2 overflow-hidden shadow-inner">
+                    <div id="progressBar" class="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 shadow-lg" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button id="playBtn" class="group relative bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-green-500/50 hover:scale-105">
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path>
+                        </svg>
+                        Play
+                    </span>
+                </button>
+                <button id="pauseBtn" class="group relative bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-yellow-500/50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100" disabled>
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V4z"></path>
+                        </svg>
+                        Pause
+                    </span>
+                </button>
+                <button id="stopBtn" class="group relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-red-500/50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100" disabled>
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V3z"></path>
+                        </svg>
+                        Stop
+                    </span>
+                </button>
+                <button id="skipBtn" class="group relative bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/50 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100" disabled>
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798l-5.445-3.63z"></path>
+                        </svg>
+                        Skip
+                    </span>
+                </button>
+            </div>
+
+            <!-- Text View -->
+            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl shadow-2xl p-6 border border-gray-700">
+                <div class="flex items-center mb-4">
+                    <svg class="w-6 h-6 text-purple-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3 class="text-xl font-semibold">Document Text</h3>
+                </div>
+                <div id="textView" class="max-h-96 overflow-y-auto text-white leading-relaxed space-y-3 pr-2">
+                    <!-- Sentences will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="pdf-processor.js"></script>
+</body>
+</html>
