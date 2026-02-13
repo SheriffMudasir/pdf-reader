@@ -1,4 +1,9 @@
-// Initialize PDF.js worker
+// Initialize PDF.js worker - Ensure it's loaded before use
+if (typeof pdfjsLib === 'undefined') {
+    alert('PDF.js library failed to load. Please check your internet connection and reload the page.');
+    throw new Error('PDF.js not loaded');
+}
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // Voice Management
@@ -125,19 +130,24 @@ class PDFTextExtractor {
     }
 
     async extractText(pdfFile) {
-        const arrayBuffer = await pdfFile.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        
-        let rawText = '';
-        
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            rawText += pageText + '\n';
+        try {
+            const arrayBuffer = await pdfFile.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            let rawText = '';
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                rawText += pageText + '\n';
+            }
+            
+            return rawText;
+        } catch (error) {
+            console.error('Error extracting text from PDF:', error);
+            throw new Error(`Failed to extract text: ${error.message}`);
         }
-        
-        return rawText;
     }
 
     sanitizeText(rawText) {
@@ -194,12 +204,27 @@ class PDFTextExtractor {
     }
 
     async process(pdfFile) {
-        const rawText = await this.extractText(pdfFile);
-        const cleanedText = this.sanitizeText(rawText);
-        const sentences = this.tokenizeSentences(cleanedText);
-        const masterData = this.createMasterData();
-        
-        return { sentences, masterData };
+        try {
+            const rawText = await this.extractText(pdfFile);
+            
+            if (!rawText || rawText.trim().length === 0) {
+                throw new Error('PDF appears to be empty or contains no extractable text');
+            }
+            
+            const cleanedText = this.sanitizeText(rawText);
+            const sentences = this.tokenizeSentences(cleanedText);
+            
+            if (sentences.length === 0) {
+                throw new Error('Could not extract any sentences from the PDF');
+            }
+            
+            const masterData = this.createMasterData();
+            
+            return { sentences, masterData };
+        } catch (error) {
+            console.error('PDF Processing Error:', error);
+            throw error;
+        }
     }
 }
 
@@ -504,13 +529,76 @@ const voiceManager = new VoiceManager();
 const extractor = new PDFTextExtractor();
 const playbackController = new PlaybackController(voiceManager);
 
+// File upload handler with error handling and loading state
 document.getElementById('pdfInput').addEventListener('change', async (event) => {
     const file = event.target.files[0];
     
     if (!file || file.type !== 'application/pdf') {
+        alert('Please select a valid PDF file');
         return;
     }
     
-    const result = await extractor.process(file);
-    playbackController.initialize(result.sentences, result.masterData);
+    // Show loading state
+    const pdfInput = document.getElementById('pdfInput');
+    const playbackSection = document.getElementById('playbackSection');
+    pdfInput.disabled = true;
+    
+    // Create loading indicator
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loadingIndicator';
+    loadingDiv.className = 'fixed top-0 left-0 w-full h-full bg-black/50 flex items-center justify-center z-50';
+    loadingDiv.innerHTML = `
+        <div class="bg-gray-800 rounded-2xl p-8 text-center shadow-2xl">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-white text-xl font-semibold">Processing PDF...</p>
+            <p class="text-gray-400 text-sm mt-2">Extracting and analyzing text</p>
+        </div>
+    `;
+    document.body.appendChild(loadingDiv);
+    
+    try {
+        // Process the PDF
+        const result = await extractor.process(file);
+        
+        // Remove loading indicator
+        loadingDiv.remove();
+        
+        // Check if we got valid results
+        if (!result.sentences || result.sentences.length === 0) {
+            throw new Error('No text could be extracted from this PDF. It may be a scanned image or empty.');
+        }
+        
+        // Initialize playback controller
+        playbackController.initialize(result.sentences, result.masterData);
+        
+        // Re-enable input
+        pdfInput.disabled = false;
+        
+        // Show success message briefly
+        const successDiv = document.createElement('div');
+        successDiv.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+        successDiv.textContent = `✓ Successfully loaded ${result.sentences.length} sentences`;
+        document.body.appendChild(successDiv);
+        setTimeout(() => successDiv.remove(), 3000);
+        
+    } catch (error) {
+        // Remove loading indicator
+        loadingDiv.remove();
+        
+        // Re-enable input
+        pdfInput.disabled = false;
+        
+        // Show error message
+        console.error('PDF Processing Error:', error);
+        
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
+        errorDiv.innerHTML = `
+            <div class="font-bold mb-1">Error Processing PDF</div>
+            <div class="text-sm">${error.message || 'An unexpected error occurred. Please try another PDF file.'}</div>
+            <div class="text-xs mt-2 opacity-75">Check browser console for details</div>
+        `;
+        document.body.appendChild(errorDiv);
+        setTimeout(() => errorDiv.remove(), 5000);
+    }
 });

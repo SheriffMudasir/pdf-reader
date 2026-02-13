@@ -4,8 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Audio Reader</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- Security headers for Vercel -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; worker-src blob:; img-src 'self' data: https:;">
+    
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
         .theme-transition * {
             transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
@@ -62,6 +70,16 @@
         
         .light-theme .hover\:bg-gray-800:hover {
             background-color: var(--bg-tertiary) !important;
+        }
+        
+        /* Loading animation */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+            animation: fade-in 0.3s ease-out;
         }
     </style>
 </head>
@@ -198,6 +216,16 @@
             </div>
         </div>
     </div>
+
+    <!-- PDF.js Worker Script (before app script) -->
+    <script>
+        // Ensure PDF.js worker is properly configured for Vercel deployment
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        } else {
+            console.error('PDF.js library failed to load. Please check your internet connection.');
+        }
+    </script>
 
     <script src="pdf-processor.js"></script>
 </body>
