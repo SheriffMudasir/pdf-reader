@@ -111,6 +111,46 @@ Transform your static PDFs into an interactive audio experience with a sleek, ci
 
 Your site will be live at: `https://your-project-name.vercel.app`
 
+### ⚠️ Important: Cross-Origin-Embedder-Policy Challenge
+
+**Issue:** If you encounter issues where the app works locally but fails on Vercel after uploading a PDF, it's likely related to the `Cross-Origin-Embedder-Policy: require-corp` header.
+
+**Symptoms:**
+- PDF uploads but processing stops
+- Console shows CORS errors for CDN resources
+- Tailwind CSS or PDF.js fails to load
+
+**Solution:**
+Remove or modify the restrictive CORS headers in `vercel.json`. The default configuration in this repository has been optimized to work with CDN resources:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+        // Note: Cross-Origin-Embedder-Policy: require-corp is NOT included
+        // as it blocks CDN resources without matching CORP headers
+      ]
+    }
+  ]
+}
+```
+
+**Why this happens:**
+- The `Cross-Origin-Embedder-Policy: require-corp` header requires all cross-origin resources to explicitly opt-in
+- CDN resources (Tailwind CSS, PDF.js) from `cdnjs.cloudflare.com` and `cdn.tailwindcss.com` don't always send matching `Cross-Origin-Resource-Policy` headers
+- This causes the browser to block these resources, breaking the app
+
+**Best Practice:**
+- For static sites using public CDNs, avoid `Cross-Origin-Embedder-Policy: require-corp`
+- Only use this header if you need SharedArrayBuffer or other features requiring cross-origin isolation
+- Alternative: Self-host all dependencies if strict COEP is required
+
 ## 📖 Usage
 
 ### Basic Workflow
@@ -186,6 +226,7 @@ Voice selection depends on your operating system and browser:
 - **PDF Complexity**: Very complex PDFs (scanned images, forms) may not extract well
 - **Text Artifacts**: Some PDFs may contain formatting artifacts
 - **Pause/Resume**: Browser implementation varies; some may restart sentence
+- **Cross-Origin Headers**: Avoid strict COEP policies when using public CDNs (see Deployment section)
 
 ## 🛠️ Future Enhancements
 

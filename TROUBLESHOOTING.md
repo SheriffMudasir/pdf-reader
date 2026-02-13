@@ -9,7 +9,36 @@
 - File uploads but nothing happens
 - No error messages visible
 
-**Solutions:**
+**Primary Cause: Cross-Origin-Embedder-Policy**
+
+The most common issue is overly restrictive CORS headers in `vercel.json`. If you added:
+```json
+"Cross-Origin-Embedder-Policy": "require-corp"
+```
+
+This will **block CDN resources** (Tailwind CSS, PDF.js) that don't send matching `Cross-Origin-Resource-Policy` headers.
+
+**Solution:**
+Remove the `Cross-Origin-Embedder-Policy: require-corp` header from `vercel.json`. The default configuration works with public CDNs:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+        // DO NOT include Cross-Origin-Embedder-Policy: require-corp
+      ]
+    }
+  ]
+}
+```
+
+**Other Solutions:**
 
 #### 1. Check Browser Console
 Open Developer Tools (F12) and check the Console tab for errors:
@@ -63,11 +92,20 @@ Try a different voice from the dropdown.
 
 ### Issue: CORS Errors
 
+**Common Cause:**
+Strict `Cross-Origin-Embedder-Policy: require-corp` header blocking CDN resources.
+
 **Solution:**
-Vercel automatically handles CORS for static files. If you see CORS errors:
-1. Check that CDN URLs use HTTPS
-2. Verify vercel.json headers are properly configured
-3. Redeploy: `vercel --prod`
+1. Remove or modify restrictive CORS headers in `vercel.json`
+2. Check that CDN URLs use HTTPS
+3. Verify resources load in Network tab (F12)
+4. Redeploy: `vercel --prod`
+
+**If you need strict COEP:**
+Self-host all dependencies instead of using CDNs:
+- Download Tailwind CSS
+- Download PDF.js library and worker
+- Serve from your own domain
 
 ### Manual Testing Checklist
 
